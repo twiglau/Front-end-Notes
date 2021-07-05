@@ -177,5 +177,99 @@
 
  /**
   * 五, 宏任务和微任务
+  * 事件循环中的异步回调队列有两种: 宏任务(MacroTask) 和 微任务(MicroTask)队列.
+  * 
+  * 什么是宏任务和微任务呢?
+  * > 宏任务: 包括script全部代码,setTimeout,setInterval,setImmediate(Node.js),
+  *   requestAnimationFrame(浏览器), I/O操作, UI操作(浏览器),这些代码执行便是宏任务.
+  * > 微任务: 包括process.nextTick(Node.js), Promise, MutationObserver,这些代码
+  *   执行便是微任务.
+  * 
+  * 为甚么要将异步任务分为宏任务和微任务呢? 这是为了避免回调队列中等待执行的异步任务(宏任务)
+  * 过多,导致某些异步任务(微任务)的等待时间过长. 在每个宏任务执行完成之后,会先将微任务队列
+  * 中的任务执行完毕,再执行下一个宏任务.
+  * 
+  * 因此,前面我们所说的回调队列可以理解为宏任务队列,同时还有另外一个任务队列的微任务队列.
+  * 
+  * > 1. 宏任务队列一次只从队列中取一个任务执行,执行完后就去执行微任务队列中的任务.
+  * > 2. 微任务队列中所有的任务都会被依次取出来执行,直到微任务队列为空.
+  * > 3. 在执行完所有的微任务之后,执行下一个宏任务之前,浏览器会执行UI渲染操作,更新界面.
+  * 
+  * 我们能看到,在浏览器中每个宏任务执行完成后,会执行微任务队列中的任务. 而在Node.js中,事件
+  * 循环分为6个阶段,微任务会在事件循环的各个阶段之间执行. 也就是说,每当一个阶段执行完毕,就会
+  * 去执行微任务队列的任务.
+  * 
+  * 宏任务和微任务的执行顺序,常常会被用作面试题,比如下面这道考察Promise,setTimeout,async/await
+  * 等API执行顺序的题目:
   * 
   */
+ console.log("script start");
+
+ setTimeout(() => {
+     console.log("setTimeout");
+ },1000);
+
+ Promise.resolve()
+ .then(function(){
+     console.log("promise1");
+ })
+ .then(function() {
+     console.log("promise2");
+ });
+
+ async function errorFunc() {
+     try {
+         await Promise.reject("error!!!");
+     }catch(e){
+         console.log("error caught"); //微1-3
+     }
+     console.log("errorFunc");
+     return Promise.resolve("errorFunc success");
+}
+
+errorFunc().then((res) => console.log("errorFunc then res"));
+
+console.log("script end");
+
+/**
+ * 小结
+ * 今天介绍了JavaScript的单线程设计,它的设计初衷是为了让用户获得更好的交互体验. 同时,为了
+ * 避免单线程的任务执行过程中发生阻塞, 事件循环(Event Loop)机制便出现了.
+ * 
+ * 在浏览器和Node.js中,都存在单线程的Event Loop 设计,它们之间的不一致主要表现为Event Loop
+ * 阶段划分以及宏任务和微任务的处理.
+ * 
+ * 或许你会感到疑惑,除了应对面试之外,掌握JavaScript的事件循环,宏任务和微任务相关机制,对我们用什么
+ * 用?
+ * 
+ * 要知道,浏览器中在执行JavaScript代码的时候不会进行页面渲染,如果一项任务花费的事件太长,浏览器将无法
+ * 执行其他任务(例如处理用户事件). 因此,当存在大量复杂的计算,或导致了死循环的编程错误是,甚至会使页面终止.
+ * 
+ * 我们可以更合理地利用这些机制来拆分任务,比如考虑将多次触发的数据变更通过微任务收集起来,再一起进行
+ * UI的更新的渲染,便可以降低浏览器渲染的频率,提升浏览器的性能,给到用户更好的体验.
+ */
+
+/**
+ * 答案:
+ * > 1. 脚本先执行同步代码,宏任务,顺序是 "script start", setTimeout, "script end",由于 setTimeout
+ * 是异步任务,所以程序不会等待它完成,所以setTimeout的回调函数会被挂起,在将来等待时间完成之后就会把它重新掉入
+ * 回调队列,第一轮执行完成之后,此时微任务有 Promise.resolve(), errorFunc(),它们会被加入回调队列,顺序是
+ * Promise.resolve() errorFunc()
+ * 
+ * > 2. 此时主线程处于空闲状态,需要从回调队列中提取任务,队列是先进先出,所以取出来的是Promise.resolve(),此时
+ * 它就会进入调用栈,接着主线程就从调用栈中取出它运行,所以现在就会输出promise,与此同时,产生了下一个微任务,这个
+ * 微任务接着也会被加入回调队列,此时回到队列的顺序是 errorFunc() = Promise.resolve()产生的微任务(PR).
+ * 
+ * > 3. 接下来同理,errorFunc()会被处理,因为await会阻塞异步操作,所以这个await后面的Promise不会去回调队列排队,
+ * 而是等待完成,所以 "error caught" 就会被输出,接着是一段同步代码,所以就会输出 "errorFunc",同理,异步函数返回
+ * 的Promise会被加入回调队列中排队,此时回调队列是 PR = errorFunc 返回的回调.
+ * 
+ * > 4. 同理,此时会执行 "promise 2",接着就会执行 "errorFunc then res"
+ * 
+ * > 5. 接着就是setTimeout的等待时间到了,其回调函数加入回调队列,执行"setTimeout",因为宏任务一次只执行一次,然后
+ * 是执行所有的微任务,所有微任务执行完之后,再执行下一次宏任务,所以就算setTimeout计时时间0,也是最后执行
+ * 
+ * > 6. 最后的运行结果为 "script start", "script end","promise 1",
+ * "error caught","errorFunc","promise 2","errorFunc then res","setTimeout"
+ * 
+ */
