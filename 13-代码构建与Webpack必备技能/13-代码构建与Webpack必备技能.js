@@ -208,6 +208,41 @@ module.exports = {
  * 
  * 前面说到,ES6模块需要依赖Babel编译和Webpack打包,而Babel在Webpack中就是使用Loader的方式来进行编译的.
  * 
- * babel-loader将ES6/ES7语法编译生成ES5,其中部分特性还需要
+ * babel-loader将ES6/ES7语法编译生成ES5,其中部分特性还需要babel-polyfill支持.这是因为Babel默认只转换新的
+ * JavaScript语法(比如const/let),但不会对新的API(比如Promise)进行处理.
+ * 
+ * Webpack在编译过程中,支持多个Loader通过流水线的方式进行先后编译,编译的顺序为从后往前,最终以JavaScript模块的方式输出.
+ * 
+ * 到这里,我们知道Webpack以entry为入口,链式调用各个Loader进行编译生成JavaScript,最终打包放置在output中.其中Loader
+ * 只负责将其他非JavaScript模块转换成JavaScript模块.
+ * 
+ * 那Webpack又是怎样地对这些代码进行组织并生成文件呢?这就是插件Plugins负责的事情.
  */
+
+/**
+ * 七,插件(plugins)
+ * 插件(plugins)主要负责解决Loader无法做到的事情,它可以访问在Webpack编译过程中的关键事件,对Webpack内部示例的一些数据进行处理,处理完成后
+ * 回调Webpack让其继续.
+ * 
+ * 来看几个具体插件.
+ * > HtmlwebpackPlugin: 可以生成创建HTML入口文件,也可以为HTML文件中引入的外部资源如script,link动态添加每次编译后的哈希值,防止引用
+ * 缓存的外部文件问题.
+ * > CommonChunkPlugin: 用来提取代码的公共模块,并将这些公共模块按照预期进行打包生成独立的文件.
+ * > ProvidePlugin: 用来定义标识符,当遇到指定标识符的时候自动加载模块,适合引入的全局变量(比如jQuery).
+ * > ExtractTextPlugin: 可以将样式从JavaScript中抽出,生成单独的.css样式文件.
+ * 
+ * 看到这里应该明白:
+ * 插件可以用来控制最终生成的代码是如何进行组织和输出的,包括对代码的打包优化,压缩,甚至是启用模块热替换,重新定义环境中的变量,等等.
+ * 
+ * 那么,现在已经知道Webpack到底对项目代码做了什么.
+ * 1. 通过entry指定的入口开始,解析各个文件模块间的依赖.
+ * 2. 根据模块间的依赖关系,开始对各个模块进行编译.
+ * 3. 编译过程中,根据配置的规则对一些模块使用Loader进行编译处理.
+ * 4. 根据插件的配置,对Loader编译后的代码进行封装,优化,分块,压缩等.
+ * 5. 最终Webpack整合各个模块,根据依赖关系将它们打包成最终的一个或者多个文件.
+ * 
+ * 这便是Webpack做的事情:
+ * 让前端项目中模块化的代码能最终在浏览器中进行加载,并正常地工作.
+ */
+
 
